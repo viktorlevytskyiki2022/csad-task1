@@ -3,7 +3,7 @@ name: Auto-Check Repositories
 on:
   push:
     paths:
-      - 'input/*.csv'  # Запускати тільки коли оновлюється CSV в папці input
+      - 'input/**'  # Запускати тільки коли оновлюється CSV в папці input
     branches:
       - main           # Або master, перевір як називається твоя гілка
 
