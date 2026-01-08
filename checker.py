@@ -8,7 +8,7 @@ INPUT_DIR = 'input'    # Папка, куди Google Script кидає CSV
 OUTPUT_DIR = 'output'  # Папка, куди ми покладемо результат
 # Назви колонок у CSV (мають точно співпадати з тими, що в таблиці!)
 COL_GIT_NAME = 'git name'   # Нікнейм студента
-COL_REPO_NAME = 'Repo Name' # Назва репозиторію (згенерував викладач формулою)
+COL_REPO_NAME = '402' # Назва репозиторію (згенерував викладач формулою)
 
 def check_repo_exists(username, repo_name):
     """Перевіряє, чи існує публічний репозиторій на GitHub."""
