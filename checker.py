@@ -4,74 +4,76 @@ import os
 import time
 
 # --- НАЛАШТУВАННЯ ---
-INPUT_DIR = 'input'    # Папка, куди Google Script кидає CSV
-OUTPUT_DIR = 'output'  # Папка, куди ми покладемо результат
-# Назви колонок у CSV (мають точно співпадати з тими, що в таблиці!)
-COL_GIT_NAME = 'git name'   # Нікнейм студента
-COL_REPO_NAME = '402' # Назва репозиторію (згенерував викладач формулою)
+INPUT_DIR = 'input'
+OUTPUT_DIR = 'output'
+COL_GIT_NAME = 'git name'
+
+def get_repo_column(fieldnames):
+    """
+    Шукає колонку з назвою репозиторію.
+    Пріоритет: 
+    1. Точна назва 'Repo Name'
+    2. Номер групи (наприклад '401', '402')
+    """
+    # Варіант 1: Стандартна назва
+    if 'Repo Name' in fieldnames:
+        return 'Repo Name'
+    
+    # Варіант 2: Шукаємо колонку, яка складається з 3 цифр (401, 402...)
+    for col in fieldnames:
+        if col.strip().isdigit() and len(col.strip()) == 3:
+            return col
+            
+    return None
 
 def check_repo_exists(username, repo_name):
-    """Перевіряє, чи існує публічний репозиторій на GitHub."""
-    # Формуємо посилання: https://github.com/user/repo
     url = f"https://github.com/{username}/{repo_name}"
     try:
-        # Робимо запит. timeout=5 означає чекати не більше 5 сек
         response = requests.get(url, timeout=5)
-        
-        if response.status_code == 200:
-            return "OK"   # Репозиторій є і він публічний
-        elif response.status_code == 404:
-            return "FAIL" # Такого репозиторію немає
-        else:
-            return f"ERR:{response.status_code}" # Інша помилка
-    except Exception as e:
-        return "ERROR" # Помилка з'єднання
+        return "OK" if response.status_code == 200 else "FAIL"
+    except:
+        return "ERROR"
 
 def main():
-    # 1. Створюємо папку output, якщо її немає
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
-        print(f"📁 Створено папку {OUTPUT_DIR}")
 
-    # 2. Шукаємо CSV файли в папці input
     if not os.path.exists(INPUT_DIR):
-        print(f"❌ Помилка: Папка '{INPUT_DIR}' не знайдена. Запустіть спочатку експорт з Google Таблиці.")
+        print("❌ Папка input не знайдена")
         return
 
     csv_files = [f for f in os.listdir(INPUT_DIR) if f.endswith('.csv')]
     
-    if not csv_files:
-        print("⚠️ У папці input немає CSV файлів.")
-        return
-
-    print(f"🔍 Знайдено файлів: {len(csv_files)}")
-
-    # 3. Обробляємо кожен файл
     for filename in csv_files:
         input_path = os.path.join(INPUT_DIR, filename)
         output_path = os.path.join(OUTPUT_DIR, filename)
         
-        print(f"\n📄 Обробка файлу: {filename}...")
+        print(f"\n📄 Обробка: {filename}")
         
         with open(input_path, mode='r', encoding='utf-8') as infile:
             reader = csv.DictReader(infile)
+            fieldnames = reader.fieldnames
             
-            # Перевіряємо, чи є потрібні колонки
-            if COL_GIT_NAME not in reader.fieldnames or COL_REPO_NAME not in reader.fieldnames:
-                print(f"❌ Пропускаю файл, бо немає колонок '{COL_GIT_NAME}' або '{COL_REPO_NAME}'")
+            # --- РОЗУМНИЙ ПОШУК КОЛОНКИ ---
+            repo_col = get_repo_column(fieldnames)
+            
+            if not repo_col:
+                print(f"⚠️ У файлі немає колонки 'Repo Name' або номера групи (401, 402...). Пропускаю.")
                 continue
+                
+            print(f"   🎯 Знайдено колонку з репозиторіями: '{repo_col}'")
 
-            # Додаємо нову колонку Status
-            fieldnames = reader.fieldnames + ['Status']
-            
+            # Додаємо статус
+            out_fieldnames = fieldnames + ['Status']
             rows_to_write = []
             
             for row in reader:
                 git_user = row.get(COL_GIT_NAME, '').strip()
-                repo_name = row.get(COL_REPO_NAME, '').strip()
+                repo_name = row.get(repo_col, '').strip()
                 
-                # Перевіряємо тільки якщо є дані
                 if git_user and repo_name:
+                    # Валідація нікнейму (прибираємо заборонені символи, якщо раптом є)
+                    git_user = git_user.replace('_', '') 
                     status = check_repo_exists(git_user, repo_name)
                     print(f"   👉 {git_user}/{repo_name} -> {status}")
                 else:
@@ -79,17 +81,12 @@ def main():
                 
                 row['Status'] = status
                 rows_to_write.append(row)
-                
-                # Маленька пауза, щоб GitHub не заблокував за спам запитами
-                time.sleep(0.2) 
+                time.sleep(0.1) 
 
-        # 4. Записуємо результат у новий файл
         with open(output_path, mode='w', encoding='utf-8', newline='') as outfile:
-            writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+            writer = csv.DictWriter(outfile, fieldnames=out_fieldnames)
             writer.writeheader()
             writer.writerows(rows_to_write)
-            
-        print(f"✅ Результат збережено: {output_path}")
 
 if __name__ == "__main__":
     main()
