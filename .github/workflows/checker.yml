@@ -3,12 +3,13 @@ name: Auto-Check Repositories
 on:
   push:
     paths:
-      - 'input/**'  # Запускати тільки коли оновлюється CSV в папці input
+      - 'input/**'  # Автозапуск, якщо щось змінилось в input
     branches:
-      - main           # Або master, перевір як називається твоя гілка
+      - main
+  workflow_dispatch: # <--- ОСЬ ЦЯ МАГІЧНА КНОПКА РУЧНОГО ЗАПУСКУ
 
 permissions:
-  contents: write      # Дозвіл записувати результати назад у репо
+  contents: write
 
 jobs:
   run-checker:
